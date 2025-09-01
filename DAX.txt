@@ -1,0 +1,80 @@
+-- Basic Measures
+Total Retail Cost = SUM(FactAzureCost[retailPrice])
+Total Unit Price = SUM(FactAzureCost[unitPrice])
+Total Units = SUM(FactAzureCost[tierMinimumUnits])
+
+-- Time Intelligence
+YTD Retail Cost = TOTALYTD([Total Retail Cost], DimDate[Date])
+PY Retail Cost = CALCULATE([Total Retail Cost], SAMEPERIODLASTYEAR(DimDate[Date]))
+YoY Retail % = DIVIDE([Total Retail Cost] - [PY Retail Cost], [PY Retail Cost], 0)
+MTD Retail Cost = TOTALMTD([Total Retail Cost], DimDate[Date])
+PM Retail Cost = CALCULATE([Total Retail Cost], PREVIOUSMONTH(DimDate[Date]))
+MoM Retail % = DIVIDE([MTD Retail Cost] - [PM Retail Cost], [PM Retail Cost], 0)
+
+-- Rolling / Cumulative
+Rolling 30D Retail Cost = CALCULATE([Total Retail Cost], DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -30, DAY))
+Rolling 90D Retail Cost = CALCULATE([Total Retail Cost], DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -90, DAY))
+Cumulative Retail Cost = CALCULATE([Total Retail Cost], FILTER(ALL(DimDate), DimDate[Date] <= MAX(DimDate[Date])))
+
+-- Contribution / Share
+Service Cost % = DIVIDE([Total Retail Cost], CALCULATE([Total Retail Cost], ALL(DimService)), 0)
+Region Cost % = DIVIDE([Total Retail Cost], CALCULATE([Total Retail Cost], ALL(DimRegion)), 0)
+Product Cost % = DIVIDE([Total Retail Cost], CALCULATE([Total Retail Cost], ALL(DimProduct)), 0)
+
+-- Dynamic Top N
+Top N Services Retail Cost = 
+VAR TopNValue = SELECTEDVALUE('Top N Value'[Value], 5)
+RETURN CALCULATE([Total Retail Cost], TOPN(TopNValue, ALL(DimService), [Total Retail Cost], DESC))
+
+Top N SKU Retail Cost = 
+VAR TopNValue = SELECTEDVALUE('Top N Value'[Value], 5)
+RETURN CALCULATE([Total Retail Cost], TOPN(TopNValue, ALL(DimProduct[SkuName]), [Total Retail Cost], DESC))
+
+Top N Region Retail Cost = 
+VAR TopNValue = SELECTEDVALUE('Top N Value'[Value], 5)
+RETURN CALCULATE([Total Retail Cost], TOPN(TopNValue, ALL(DimRegion[RegionName]), [Total Retail Cost], DESC))
+
+-- Forecasting / Trend
+Forecast Next Month = 
+VAR LastDate = MAX(DimDate[Date])
+RETURN CALCULATE([Total Retail Cost], DATESINPERIOD(DimDate[Date], LastDate, 1, MONTH))
+
+Rolling Avg 30D = CALCULATE(AVERAGE([Total Retail Cost]), DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -30, DAY))
+
+-- Reservation / Pricing Insights
+Reserved Cost = CALCULATE([Total Retail Cost], FactAzureCost[reservationTerm] <> BLANK())
+Reserved Cost % = DIVIDE([Reserved Cost], [Total Retail Cost], 0)
+
+-- SKU / Meter Level Analysis
+Avg Cost per Unit = DIVIDE([Total Retail Cost], [Total Units], 0)
+Cost per Region-Service = CALCULATE([Total Retail Cost], ALLEXCEPT(DimRegion, DimRegion[RegionName]), ALLEXCEPT(DimService, DimService[ServiceName]))
+
+-- Anomaly Detection
+Rolling30Mean = CALCULATE(AVERAGE([Total Retail Cost]), DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -30, DAY))
+Rolling30StdDev = CALCULATE(STDEVX.P(DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -30, DAY), [Total Retail Cost]))
+Cost Anomaly Flag = 
+VAR CurrentCost = [Total Retail Cost]
+VAR Mean30 = [Rolling30Mean]
+VAR Std30 = [Rolling30StdDev]
+RETURN IF(ABS(CurrentCost - Mean30) > 2 * Std30, "Anomaly", "Normal")
+
+-- Optional Deep Dive
+High Cost Services = CALCULATE([Total Retail Cost], FILTER(ALL(DimService), [Total Retail Cost] > 10000))
+
+
+--- Count
+
+-- Count of Transactions / Records
+Total Records = COUNTROWS(FactAzureCost)
+
+-- Count of Unique Services
+Unique Services = DISTINCTCOUNT(FactAzureCost[serviceName])
+
+-- Count of Unique Products / SKUs
+Unique SKUs = DISTINCTCOUNT(FactAzureCost[skuId])
+
+-- Count of Unique Regions
+Unique Regions = DISTINCTCOUNT(FactAzureCost[armRegionName])
+
+-- Count of Active Reservations
+Active Reservations = CALCULATE(DISTINCTCOUNT(FactAzureCost[reservationTerm]), FactAzureCost[reservationTerm] <> BLANK())

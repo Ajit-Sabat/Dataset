@@ -1,0 +1,48 @@
+-- Total On-Demand Cost
+OnDemand Cost = 
+CALCULATE(
+    [Total Retail Cost],
+    ISBLANK(FactAzureCost[reservationTerm])
+)
+
+-- Total Reserved Cost
+Reserved Cost = 
+CALCULATE(
+    [Total Retail Cost],
+    NOT(ISBLANK(FactAzureCost[reservationTerm]))
+)
+
+
+-- Count of On-Demand Transactions
+OnDemand Count = 
+CALCULATE(
+    COUNTROWS(FactAzureCost),
+    ISBLANK(FactAzureCost[reservationTerm])
+)
+
+-- Count of Reserved Transactions
+Reserved Count = 
+CALCULATE(
+    COUNTROWS(FactAzureCost),
+    NOT(ISBLANK(FactAzureCost[reservationTerm]))
+)
+
+
+-- % of Cost On-Demand
+OnDemand % = DIVIDE([OnDemand Cost], [Total Retail Cost], 0)
+
+-- % of Cost Reserved
+Reserved % = DIVIDE([Reserved Cost], [Total Retail Cost], 0)
+
+-- % of Transactions On-Demand
+OnDemand Transactions % = DIVIDE([OnDemand Count], [Total Records], 0)
+
+-- % of Transactions Reserved
+Reserved Transactions % = DIVIDE([Reserved Count], [Total Records], 0)
+
+
+-- Average On-Demand Cost per Unit
+Avg OnDemand Cost per Unit = DIVIDE([OnDemand Cost], [OnDemand Count], 0)
+
+-- Average Reserved Cost per Unit
+Avg Reserved Cost per Unit = DIVIDE([Reserved Cost], [Reserved Count], 0)
