@@ -1,0 +1,126 @@
+import pandas as pd
+import numpy as np
+import random
+from datetime import datetime, timedelta
+
+# -----------------------------
+# PARAMETERS
+# -----------------------------
+n_customers = 50000
+platforms = ["Netflix", "Amazon Prime", "Hotstar"]
+plans = {
+    "Netflix": ["Basic", "Standard", "Premium"],
+    "Amazon Prime": ["Monthly", "Annual"],
+    "Hotstar": ["Mobile", "Super", "Premium"]
+}
+plan_fees = {
+    "Basic": 199, "Standard": 499, "Premium": 649,
+    "Monthly": 179, "Annual": 1499/12, "Mobile": 149, "Super": 299, "Premium": 499
+}
+countries = {"India":0.4, "USA":0.25, "UK":0.1, "Canada":0.1, "Australia":0.05, "Other":0.1}
+cities = {
+    "India": ["Mumbai","Delhi","Bangalore","Chennai","Hyderabad"],
+    "USA": ["New York","Los Angeles","Chicago","Houston","Miami"],
+    "UK": ["London","Manchester","Birmingham"],
+    "Canada": ["Toronto","Vancouver","Montreal"],
+    "Australia": ["Sydney","Melbourne","Brisbane"],
+    "Other": ["Dubai","Singapore","Berlin"]
+}
+genders = ["Male","Female","Other"]
+payment_methods = ["Credit Card","Debit Card","UPI","Wallet"]
+genres = ["Action","Drama","Comedy","Thriller","Romance","Horror","Documentary","Sci-Fi"]
+acquisition_channels = ["Organic","Ads","Referral","App Store"]
+device_types = ["Mobile","Tablet","TV","Desktop"]
+issue_types = ["Billing","Technical","Content"]
+
+start_date = datetime(2018,1,1)
+end_date = datetime(2023,12,31)
+
+# -----------------------------
+# GENERATE DATA
+# -----------------------------
+data = []
+
+np.random.seed(42)
+
+for i in range(n_customers):
+    cust_id = f"CUST{i+1:05d}"
+    platform = np.random.choice(platforms, p=[0.4,0.35,0.25])
+    plan = np.random.choice(plans[platform])
+    fee = plan_fees[plan]
+    tenure = np.random.randint(1,61)
+    watch_hours = max(0,np.random.normal(40,20))
+    sessions_per_week = max(0,int(np.random.normal(5,2)))
+    avg_watch_session = round(watch_hours / max(sessions_per_week,1),1)
+    support_tickets = np.random.poisson(0.3)
+    
+    churn_prob = 0.2
+    if tenure < 3: churn_prob += 0.2
+    if watch_hours < 20: churn_prob += 0.1
+    if support_tickets > 2: churn_prob += 0.15
+    if plan in ["Premium","Annual"]: churn_prob -= 0.1
+    
+    churn = np.random.choice([0,1],p=[1-churn_prob,churn_prob])
+    
+    country = np.random.choice(list(countries.keys()), p=list(countries.values()))
+    city = np.random.choice(cities[country])
+    gender = np.random.choice(genders, p=[0.48,0.48,0.04])
+    age = np.random.randint(18,65)
+    payment_method = np.random.choice(payment_methods)
+    discount_applied = np.random.choice([0,1], p=[0.7,0.3])
+    promo_code_used = np.random.choice([0,1], p=[0.8,0.2])
+    acquisition_channel = np.random.choice(acquisition_channels)
+    app_rating = round(np.random.normal(4,0.7),1)
+    app_rating = min(max(app_rating,1),5)
+    device_type = np.random.choice(device_types)
+    refund_requested = np.random.choice([0,1], p=[0.95,0.05])
+    upsell_eligible = np.random.choice([0,1], p=[0.7,0.3])
+    last_login = end_date - timedelta(days=random.randint(0,90))
+    
+    # Genres
+    genre_flags = {g: np.random.choice([0,1],p=[0.7,0.3]) for g in genres}
+    genres_watched = ", ".join([g for g,flag in genre_flags.items() if flag==1])
+    favorite_genre = np.random.choice(genres_watched.split(", ")) if genres_watched else np.nan
+    
+    issue_type_most_frequent = np.random.choice(issue_types) if support_tickets>0 else np.nan
+    satisfaction_score = round(np.random.normal(app_rating*2,1),1)
+    satisfaction_score = min(max(satisfaction_score,1),10)
+    binge_sessions = max(0,int(np.random.poisson(2)))
+    
+    # Subscription dates
+    sub_start = start_date + timedelta(days=random.randint(0,(end_date-start_date).days))
+    sub_end = sub_start + pd.DateOffset(months=tenure) if churn==1 else pd.NaT
+    subscription_duration_days = (sub_end - sub_start).days if churn==1 else (end_date - sub_start).days
+    churn_time_since_start = (sub_end - sub_start).days if churn==1 else np.nan
+    
+    # Revenue
+    total_revenue = round(fee * tenure,2)
+    
+    row = [cust_id, platform, plan, round(fee,2), tenure, round(watch_hours,1), sessions_per_week,
+           avg_watch_session, support_tickets, churn, country, city, gender, age, payment_method,
+           discount_applied, promo_code_used, acquisition_channel, app_rating, sub_start, sub_end,
+           device_type, refund_requested, upsell_eligible, last_login, genres_watched, favorite_genre,
+           issue_type_most_frequent, satisfaction_score, binge_sessions, subscription_duration_days,
+           churn_time_since_start, total_revenue]
+    
+    row.extend([genre_flags[g] for g in genres])
+    data.append(row)
+
+# -----------------------------
+# CREATE DATAFRAME
+# -----------------------------
+columns = ["CustomerID","Platform","Plan","MonthlyFee","TenureMonths","WatchHours","SessionsPerWeek",
+           "AvgWatchTimePerSession","SupportTickets","Churn","Country","City","Gender","Age","PaymentMethod",
+           "DiscountApplied","PromoCodeUsed","AcquisitionChannel","AppRating","SubscriptionStartDate","SubscriptionEndDate",
+           "DeviceType","RefundRequested","UpsellEligible","LastLoginDate","GenresWatched","FavoriteGenre",
+           "IssueTypeMostFrequent","SatisfactionScore","BingeSessions","SubscriptionDurationDays",
+           "ChurnTimeSinceStart","TotalRevenue"]
+columns.extend(genres)
+
+df = pd.DataFrame(data, columns=columns)
+
+# -----------------------------
+# SAVE CSV
+# -----------------------------
+df.to_csv("ott_churn_dataset_full_enhanced.csv", index=False)
+print("Dataset saved as ott_churn_dataset_full_enhanced.csv")
